@@ -1,0 +1,45 @@
+// Prisma Schema for THEJORD API
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Blog Post Model
+model BlogPost {
+  id        String   @id @default(uuid())
+  slug      String
+  language  String   // 'it' | 'en'
+  title     String
+  excerpt   String   @db.Text
+  content   String   @db.Text // Markdown content
+  author    String
+  readTime  String   // e.g. "5 min"
+  tags      String[] // Array of tags
+  image     String?  // Emoji or image URL
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([slug, language]) // Slug must be unique per language
+  @@index([language, published]) // Index for filtering by language and published status
+  @@map("blog_posts")
+}
+
+// Admin User Model (for authentication)
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // Hashed with bcrypt
+  name      String
+  role      String   @default("admin") // 'admin' | 'editor'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
