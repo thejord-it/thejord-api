@@ -56,8 +56,6 @@ spec:
               port: 4000
             initialDelaySeconds: 5
             periodSeconds: 5
-      imagePullSecrets:
-        - name: ghcr-secret
 ---
 apiVersion: v1
 kind: Service
