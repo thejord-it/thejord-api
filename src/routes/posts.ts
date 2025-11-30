@@ -1,19 +1,48 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { prisma } from '../server';
 import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
-// GET /api/posts - Get all published blog posts
+// GET /api/posts - Get all blog posts
+// Query params: lang, published, search, tags
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { lang = 'it', published = 'true' } = req.query;
+    const { lang = 'it', published = 'true', search, tags } = req.query;
 
-    const posts = await prisma.blogPost.findMany({
-      where: {
-        language: lang as string,
-        ...(published === 'true' && { published: true })
-      },
+    const whereClause: any = {};
+
+    // If lang is not 'all', filter by language
+    if (lang !== 'all') {
+      whereClause.language = lang as string;
+    }
+
+    // If published is 'all', don't filter by published status (for admin)
+    if (published !== 'all') {
+      whereClause.published = published === 'true';
+    }
+
+    // Search filter: search in title, excerpt, and content
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
+      whereClause.OR = [
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { excerpt: { contains: searchTerm, mode: 'insensitive' } },
+        { content: { contains: searchTerm, mode: 'insensitive' } }
+      ];
+    }
+
+    // Tags filter: filter by tags (OR logic - matches any of the provided tags)
+    if (tags && typeof tags === 'string' && tags.trim()) {
+      const tagArray = tags.split(',').map(t => t.trim()).filter(Boolean);
+      if (tagArray.length > 0) {
+        whereClause.tags = { hasSome: tagArray };
+      }
+    }
+
+    const posts = await prisma.blog_posts.findMany({
+      where: whereClause,
       orderBy: {
         createdAt: 'desc'
       },
@@ -27,9 +56,11 @@ router.get('/', async (req: Request, res: Response) => {
         readTime: true,
         tags: true,
         image: true,
+        icon: true,
         published: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        translationGroup: true
         // Exclude 'content' from list view for performance
       }
     });
@@ -49,20 +80,32 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/posts/:slug - Get single blog post by slug
-router.get('/:slug', async (req: Request, res: Response) => {
+// GET /api/posts/:slugOrId - Get single blog post by slug or ID
+router.get('/:slugOrId', async (req: Request, res: Response) => {
   try {
-    const { slug } = req.params;
+    const { slugOrId } = req.params;
     const { lang = 'it' } = req.query;
 
-    const post = await prisma.blogPost.findUnique({
-      where: {
-        slug_language: {
-          slug,
-          language: lang as string
+    // Check if parameter is a UUID (for admin) or slug (for public)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId);
+
+    let post;
+    if (isUUID) {
+      // Fetch by ID (for admin)
+      post = await prisma.blog_posts.findUnique({
+        where: { id: slugOrId }
+      });
+    } else {
+      // Fetch by slug (for public)
+      post = await prisma.blog_posts.findUnique({
+        where: {
+          slug_language: {
+            slug: slugOrId,
+            language: lang as string
+          }
         }
-      }
-    });
+      });
+    }
 
     if (!post) {
       return res.status(404).json({
@@ -93,10 +136,77 @@ router.get('/:slug', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/posts/:slug/translations - Get translations for a post
+router.get('/:slug/translations', async (req: Request, res: Response) => {
+  try {
+    const { slug } = req.params;
+    const { lang = 'it' } = req.query;
+
+    // First, find the post to get its translationGroup
+    const post = await prisma.blog_posts.findUnique({
+      where: {
+        slug_language: {
+          slug,
+          language: lang as string
+        }
+      },
+      select: {
+        translationGroup: true
+      }
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        error: 'Post not found'
+      });
+    }
+
+    // If no translationGroup, no translations exist
+    if (!post.translationGroup) {
+      return res.json({
+        success: true,
+        data: {}
+      });
+    }
+
+    // Find all posts with the same translationGroup
+    const translations = await prisma.blog_posts.findMany({
+      where: {
+        translationGroup: post.translationGroup,
+        published: true
+      },
+      select: {
+        slug: true,
+        language: true
+      }
+    });
+
+    // Convert to object: { "it": "slug-it", "en": "slug-en" }
+    const translationMap: Record<string, string> = {};
+    for (const t of translations) {
+      translationMap[t.language] = t.slug;
+    }
+
+    res.json({
+      success: true,
+      data: translationMap
+    });
+  } catch (error: any) {
+    console.error('Error fetching translations:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch translations',
+      message: error.message
+    });
+  }
+});
+
 // POST /api/posts - Create new blog post (protected)
 router.post('/', authMiddleware, async (req: Request, res: Response) => {
   try {
     const {
+      id,
       slug,
       language,
       title,
@@ -106,7 +216,9 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
       readTime,
       tags,
       image,
-      published
+      icon,
+      published,
+      translationGroup
     } = req.body;
 
     // Validation
@@ -118,8 +230,9 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
       });
     }
 
-    const post = await prisma.blogPost.create({
+    const post = await prisma.blog_posts.create({
       data: {
+        id: id || crypto.randomUUID(),
         slug,
         language,
         title,
@@ -129,7 +242,10 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         readTime: readTime || '5 min',
         tags: tags || [],
         image,
-        published: published || false
+        icon,
+        published: published || false,
+        translationGroup: translationGroup || null,
+        updatedAt: new Date()
       }
     });
 
@@ -166,7 +282,7 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
     delete updateData.id;
     delete updateData.createdAt;
 
-    const post = await prisma.blogPost.update({
+    const post = await prisma.blog_posts.update({
       where: { id },
       data: updateData
     });
@@ -198,7 +314,7 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    await prisma.blogPost.delete({
+    await prisma.blog_posts.delete({
       where: { id }
     });
 

@@ -1,6 +1,3 @@
-// Prisma Schema for THEJORD API
-// Database: PostgreSQL
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,36 +7,42 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Blog Post Model
-model BlogPost {
-  id        String   @id @default(uuid())
-  slug      String
-  language  String   // 'it' | 'en'
-  title     String
-  excerpt   String   @db.Text
-  content   String   @db.Text // Markdown content
-  author    String
-  readTime  String   // e.g. "5 min"
-  tags      String[] // Array of tags
-  image     String?  // Emoji or image URL
-  published Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model blog_posts {
+  id              String    @id
+  slug            String
+  language        String
+  title           String
+  excerpt         String
+  content         String
+  author          String
+  readTime        String
+  tags            String[]
+  image           String?
+  icon            String?
+  published       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime
+  canonicalUrl    String?
+  keywords        String[]
+  metaDescription String?
+  metaTitle       String?
+  ogImage         String?
+  publishedAt     DateTime?
+  editorType      String    @default("markdown")
+  translationGroup String?
 
-  @@unique([slug, language]) // Slug must be unique per language
-  @@index([language, published]) // Index for filtering by language and published status
-  @@map("blog_posts")
+  @@unique([slug, language])
+  @@index([translationGroup])
+  @@index([language, published])
+  @@index([publishedAt])
 }
 
-// Admin User Model (for authentication)
-model User {
-  id        String   @id @default(uuid())
+model users {
+  id        String   @id
   email     String   @unique
-  password  String   // Hashed with bcrypt
+  password  String
   name      String
-  role      String   @default("admin") // 'admin' | 'editor'
+  role      String   @default("admin")
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("users")
+  updatedAt DateTime
 }
