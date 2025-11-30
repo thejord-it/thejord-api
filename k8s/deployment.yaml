@@ -69,29 +69,4 @@ spec:
     - protocol: TCP
       port: 4000
       targetPort: 4000
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: thejord-api-ingress
-  namespace: thejord
-  annotations:
-    kubernetes.io/ingress.class: traefik
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
-spec:
-  tls:
-    - hosts:
-        - api.thejord.it
-      secretName: thejord-api-tls
-  rules:
-    - host: api.thejord.it
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: thejord-api
-                port:
-                  number: 4000
+# Note: No public Ingress - API is accessed internally via proxy
