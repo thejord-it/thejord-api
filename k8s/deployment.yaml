@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thejord-api
+  namespace: thejord
+  labels:
+    app: thejord-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: thejord-api
+  template:
+    metadata:
+      labels:
+        app: thejord-api
+    spec:
+      containers:
+        - name: thejord-api
+          image: ghcr.io/thejord-it/thejord-api:latest
+          ports:
+            - containerPort: 4000
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "4000"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: thejord-secrets
+                  key: database-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: thejord-secrets
+                  key: jwt-secret
+            - name: CORS_ORIGIN
+              value: "https://thejord.it,https://www.thejord.it"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      imagePullSecrets:
+        - name: ghcr-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: thejord-api
+  namespace: thejord
+spec:
+  selector:
+    app: thejord-api
+  ports:
+    - protocol: TCP
+      port: 4000
+      targetPort: 4000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: thejord-api-ingress
+  namespace: thejord
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - api.thejord.it
+      secretName: thejord-api-tls
+  rules:
+    - host: api.thejord.it
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: thejord-api
+                port:
+                  number: 4000
