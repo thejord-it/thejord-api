@@ -11,6 +11,8 @@ Backend API for THEJORD platform - Blog and content management system.
 - **PostgreSQL** - Database
 - **JWT** - Authentication
 - **bcryptjs** - Password hashing
+- **Multer** - File upload handling
+- **Sharp** - Image processing (WebP conversion, resize)
 
 ## Features
 
@@ -18,6 +20,7 @@ Backend API for THEJORD platform - Blog and content management system.
 - ✅ Multilanguage support (IT/EN)
 - ✅ JWT authentication
 - ✅ Role-based access control
+- ✅ Image upload with automatic optimization (WebP conversion, resize)
 - ✅ CORS enabled
 - ✅ TypeScript with strict mode
 - ✅ Prisma ORM with migrations
@@ -94,6 +97,8 @@ GET  /api/posts/:slug?lang=it  - Get single post by slug
 POST   /api/posts              - Create new post
 PUT    /api/posts/:id          - Update post
 DELETE /api/posts/:id          - Delete post
+POST   /api/upload             - Upload image (auto-converts to WebP, max 1920x1080)
+DELETE /api/upload/:filename   - Delete uploaded image
 ```
 
 ### Authentication
@@ -161,13 +166,45 @@ thejord-api/
 │   │   └── auth.ts         # JWT authentication middleware
 │   ├── routes/
 │   │   ├── auth.ts         # Auth endpoints
-│   │   └── posts.ts        # Blog posts endpoints
+│   │   ├── posts.ts        # Blog posts endpoints
+│   │   └── upload.ts       # Image upload endpoints
 │   └── server.ts           # Express server setup
+├── uploads/                # Uploaded images (auto-optimized to WebP)
 ├── .env.example            # Environment variables template
 ├── .gitignore
 ├── package.json
 ├── README.md
 └── tsconfig.json
+```
+
+## Image Upload
+
+The API includes automatic image optimization:
+
+- **Max file size**: 5MB
+- **Allowed formats**: JPEG, JPG, PNG, GIF, WebP
+- **Auto-resize**: Max 1920x1080 (maintains aspect ratio)
+- **Auto-convert**: All images converted to WebP with 85% quality
+- **Storage**: Optimized images saved in `/uploads/` directory
+- **Access**: Images available at `/uploads/filename.webp`
+
+Example upload:
+
+```bash
+curl -X POST http://localhost:3001/api/upload \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -F "image=@photo.jpg"
+
+# Response:
+{
+  "success": true,
+  "data": {
+    "filename": "photo-1234567890.webp",
+    "url": "/uploads/photo-1234567890.webp",
+    "size": 125000,
+    "mimetype": "image/webp"
+  }
+}
 ```
 
 ## Deployment
@@ -178,7 +215,7 @@ See deployment documentation for detailed instructions.
 
 ## License
 
-MIT © Il Giordano
+MIT © The Jord
 
 ## Links
 

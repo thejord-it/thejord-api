@@ -31,12 +31,17 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// Serve uploaded files statically
+app.use('/uploads', express.static('uploads'));
+
 // API Routes
 import postsRouter from './routes/posts';
 import authRouter from './routes/auth';
+import uploadRouter from './routes/upload';
 
 app.use('/api/posts', postsRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/upload', uploadRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

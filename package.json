@@ -21,16 +21,19 @@
     "prisma",
     "postgresql"
   ],
-  "author": "Il Giordano",
+  "author": "The Jord",
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^6.19.0",
+    "@types/multer": "^2.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
