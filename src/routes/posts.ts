@@ -23,13 +23,12 @@ router.get('/', async (req: Request, res: Response) => {
       whereClause.published = published === 'true';
     }
 
-    // Search filter: search in title, excerpt, and content
+    // Search filter: search in title and excerpt only (not content to avoid matching related links)
     if (search && typeof search === 'string' && search.trim()) {
       const searchTerm = search.trim();
       whereClause.OR = [
         { title: { contains: searchTerm, mode: 'insensitive' } },
-        { excerpt: { contains: searchTerm, mode: 'insensitive' } },
-        { content: { contains: searchTerm, mode: 'insensitive' } }
+        { excerpt: { contains: searchTerm, mode: 'insensitive' } }
       ];
     }
 
