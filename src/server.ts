@@ -38,10 +38,12 @@ app.use('/uploads', express.static('uploads'));
 import postsRouter from './routes/posts';
 import authRouter from './routes/auth';
 import uploadRouter from './routes/upload';
+import settingsRouter from './routes/settings';
 
 app.use('/api/posts', postsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/upload', uploadRouter);
+app.use('/api/settings', settingsRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
