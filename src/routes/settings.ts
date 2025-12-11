@@ -43,16 +43,10 @@ router.get('/:key', verifyToken, async (req: Request, res: Response) => {
       where: { key }
     });
 
-    if (!setting) {
-      return res.status(404).json({
-        success: false,
-        error: 'Setting not found'
-      });
-    }
-
+    // Return null if setting doesn't exist (client handles defaults)
     res.json({
       success: true,
-      data: setting.value
+      data: setting ? setting.value : null
     });
   } catch (error: any) {
     console.error('Get setting error:', error);
