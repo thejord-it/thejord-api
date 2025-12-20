@@ -18,9 +18,17 @@ router.get('/', async (req: Request, res: Response) => {
       whereClause.language = lang as string;
     }
 
-    // If published is 'all', don't filter by published status (for admin)
-    if (published !== 'all') {
+    // Filter by published status
+    // 'all' = no filter, 'true' = published, 'false' = drafts, 'scheduled' = scheduled posts
+    if (published === 'scheduled') {
+      whereClause.published = false;
+      whereClause.scheduledAt = { not: null };
+    } else if (published !== 'all') {
       whereClause.published = published === 'true';
+      // Exclude scheduled posts from drafts
+      if (published === 'false') {
+        whereClause.scheduledAt = null;
+      }
     }
 
     // Search filter: search in title and excerpt only (not content to avoid matching related links)
@@ -59,6 +67,8 @@ router.get('/', async (req: Request, res: Response) => {
         published: true,
         createdAt: true,
         updatedAt: true,
+        publishedAt: true,
+        scheduledAt: true,
         translationGroup: true
         // Exclude 'content' from list view for performance
       }
@@ -217,6 +227,8 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
       image,
       icon,
       published,
+      publishedAt,
+      scheduledAt,
       translationGroup
     } = req.body;
 
@@ -228,6 +240,15 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         required: ['slug', 'language', 'title', 'excerpt', 'content']
       });
     }
+
+    // Determine publishedAt based on status
+    let finalPublishedAt = null;
+    if (published) {
+      finalPublishedAt = publishedAt ? new Date(publishedAt) : new Date();
+    }
+
+    // Parse scheduledAt if provided
+    const finalScheduledAt = scheduledAt ? new Date(scheduledAt) : null;
 
     const post = await prisma.blog_posts.create({
       data: {
@@ -243,6 +264,8 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         image,
         icon,
         published: published || false,
+        publishedAt: finalPublishedAt,
+        scheduledAt: finalScheduledAt,
         translationGroup: translationGroup || null,
         updatedAt: new Date()
       }
@@ -303,6 +326,47 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to update post',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/posts/scheduled/list - Get all scheduled posts (protected)
+router.get('/scheduled/list', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const posts = await prisma.blog_posts.findMany({
+      where: {
+        published: false,
+        scheduledAt: { not: null }
+      },
+      orderBy: {
+        scheduledAt: 'asc'
+      },
+      select: {
+        id: true,
+        slug: true,
+        language: true,
+        title: true,
+        excerpt: true,
+        author: true,
+        tags: true,
+        image: true,
+        scheduledAt: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    res.json({
+      success: true,
+      count: posts.length,
+      data: posts
+    });
+  } catch (error: any) {
+    console.error('Error fetching scheduled posts:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch scheduled posts',
       message: error.message
     });
   }

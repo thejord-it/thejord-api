@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
 
 // Load environment variables
@@ -68,6 +69,44 @@ const server = app.listen(port, () => {
   console.log(`📊 Health check: http://localhost:${port}/health`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
+
+// Cron job: Publish scheduled posts every minute
+cron.schedule('* * * * *', async () => {
+  try {
+    const now = new Date();
+
+    // Find posts that are scheduled and the scheduled time has passed
+    const postsToPublish = await prisma.blog_posts.findMany({
+      where: {
+        published: false,
+        scheduledAt: {
+          lte: now
+        }
+      }
+    });
+
+    if (postsToPublish.length > 0) {
+      console.log(`📅 Publishing ${postsToPublish.length} scheduled post(s)...`);
+
+      for (const post of postsToPublish) {
+        await prisma.blog_posts.update({
+          where: { id: post.id },
+          data: {
+            published: true,
+            publishedAt: now,
+            scheduledAt: null,
+            updatedAt: now
+          }
+        });
+        console.log(`✅ Published: "${post.title}" (${post.language})`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error in scheduled publishing job:', error);
+  }
+});
+
+console.log('⏰ Scheduled publishing cron job started (runs every minute)');
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
