@@ -28,6 +28,7 @@ model blog_posts {
   metaTitle       String?
   ogImage         String?
   publishedAt     DateTime?
+  scheduledAt     DateTime?
   editorType      String    @default("markdown")
   translationGroup String?
 
@@ -35,6 +36,7 @@ model blog_posts {
   @@index([translationGroup])
   @@index([language, published])
   @@index([publishedAt])
+  @@index([scheduledAt])
 }
 
 model users {
