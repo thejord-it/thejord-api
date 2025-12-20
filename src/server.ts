@@ -70,6 +70,31 @@ const server = app.listen(port, () => {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
+// Helper to revalidate Next.js cache
+async function revalidateCache(slug: string, language: string) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://thejord.it';
+  const revalidateToken = process.env.REVALIDATE_TOKEN || 'dev-token-change-in-production';
+
+  try {
+    const response = await fetch(`${frontendUrl}/api/revalidate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${revalidateToken}`
+      },
+      body: JSON.stringify({ path: '/blog', slug })
+    });
+
+    if (response.ok) {
+      console.log(`🔄 Cache revalidated for: ${slug} (${language})`);
+    } else {
+      console.warn(`⚠️ Cache revalidation failed for ${slug}: ${response.status}`);
+    }
+  } catch (error) {
+    console.warn(`⚠️ Cache revalidation error for ${slug}:`, error);
+  }
+}
+
 // Cron job: Publish scheduled posts every minute
 cron.schedule('* * * * *', async () => {
   try {
@@ -99,6 +124,9 @@ cron.schedule('* * * * *', async () => {
           }
         });
         console.log(`✅ Published: "${post.title}" (${post.language})`);
+
+        // Revalidate cache for this post
+        await revalidateCache(post.slug, post.language);
       }
     }
   } catch (error) {
