@@ -229,7 +229,14 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
       published,
       publishedAt,
       scheduledAt,
-      translationGroup
+      translationGroup,
+      // SEO fields
+      keywords,
+      metaTitle,
+      metaDescription,
+      ogImage,
+      canonicalUrl,
+      editorType
     } = req.body;
 
     // Validation
@@ -267,6 +274,13 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         publishedAt: finalPublishedAt,
         scheduledAt: finalScheduledAt,
         translationGroup: translationGroup || null,
+        // SEO fields
+        keywords: keywords || [],
+        metaTitle: metaTitle || null,
+        metaDescription: metaDescription || null,
+        ogImage: ogImage || null,
+        canonicalUrl: canonicalUrl || null,
+        editorType: editorType || 'markdown',
         updatedAt: new Date()
       }
     });
