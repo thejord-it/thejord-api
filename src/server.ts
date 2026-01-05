@@ -40,11 +40,13 @@ import postsRouter from './routes/posts';
 import authRouter from './routes/auth';
 import uploadRouter from './routes/upload';
 import settingsRouter from './routes/settings';
+import analyticsRouter from './routes/analytics';
 
 app.use('/api/posts', postsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

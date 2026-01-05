@@ -56,3 +56,41 @@ model admin_settings {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// Internal Analytics - raw pageview/event data
+model analytics_events {
+  id         String   @id @default(uuid())
+  sessionId  String   @map("session_id")
+  path       String
+  event      String   @default("pageview") // pageview, tool_usage, click, etc.
+  referrer   String?
+  country    String?  @db.Char(2)
+  city       String?
+  deviceType String?  @map("device_type") // mobile, desktop, tablet
+  browser    String?
+  os         String?
+  language   String?  @db.Char(2)
+  toolName   String?  @map("tool_name") // For tool usage events
+  metadata   Json?    // Additional event data
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([path])
+  @@index([sessionId])
+  @@index([event])
+  @@map("analytics_events")
+}
+
+// Aggregated daily stats for faster queries
+model analytics_daily {
+  id             String   @id @default(uuid())
+  date           DateTime @db.Date
+  path           String
+  pageviews      Int      @default(0)
+  uniqueSessions Int      @default(0) @map("unique_sessions")
+  avgDuration    Float?   @map("avg_duration")
+
+  @@unique([date, path])
+  @@index([date])
+  @@map("analytics_daily")
+}
