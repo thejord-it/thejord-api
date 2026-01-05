@@ -37,10 +37,10 @@ function getDeviceType(userAgent: string): string {
 // Browser detection
 function getBrowser(userAgent: string): string {
   if (/edg/i.test(userAgent)) return 'Edge';
-  if (/chrome/i.test(userAgent)) return 'Chrome';
-  if (/firefox/i.test(userAgent)) return 'Firefox';
+  if (/opr|opera/i.test(userAgent)) return 'Opera';
+  if (/chrome|crios|chromium/i.test(userAgent)) return 'Chrome';
+  if (/firefox|fxios/i.test(userAgent)) return 'Firefox';
   if (/safari/i.test(userAgent)) return 'Safari';
-  if (/opera|opr/i.test(userAgent)) return 'Opera';
   return 'Other';
 }
 
