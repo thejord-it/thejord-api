@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../server';
 import crypto from 'crypto';
+import { authMiddleware } from '../middleware/auth';
 
 const router = Router();
 
@@ -128,7 +129,7 @@ router.post('/track', async (req: Request, res: Response) => {
 });
 
 // GET /api/analytics/stats - Get analytics statistics
-router.get('/stats', async (req: Request, res: Response) => {
+router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, type = 'overview' } = req.query;
 
@@ -349,7 +350,7 @@ router.get('/stats', async (req: Request, res: Response) => {
 });
 
 // GET /api/analytics/realtime - Get realtime active sessions (last 5 minutes)
-router.get('/realtime', async (req: Request, res: Response) => {
+router.get('/realtime', authMiddleware, async (req: Request, res: Response) => {
   try {
     const fiveMinutesAgo = new Date();
     fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
