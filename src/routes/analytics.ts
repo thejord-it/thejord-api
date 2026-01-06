@@ -74,18 +74,13 @@ router.post('/track', async (req: Request, res: Response) => {
     const ip = getClientIP(req);
     const userAgent = req.headers['user-agent'] || '';
 
-    // DEBUG: Log incoming tracking requests
-    console.log(`[Analytics] Track request - IP: ${ip}, UA: ${userAgent.substring(0, 50)}...`);
-
     // Filter out developer IPs
     if (EXCLUDED_IPS.includes(ip) || isTailscaleIP(ip)) {
-      console.log(`[Analytics] Filtered: internal IP (${ip})`);
       return res.json({ success: true, tracked: false, reason: 'internal' });
     }
 
     // Filter out bots
     if (isBot(userAgent)) {
-      console.log(`[Analytics] Filtered: bot detected`);
       return res.json({ success: true, tracked: false, reason: 'bot' });
     }
 
