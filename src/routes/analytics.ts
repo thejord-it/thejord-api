@@ -173,6 +173,7 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
         data: {
           pageviews: totalPageviews,
           sessions: uniqueSessions.length,
+          users: uniqueSessions.length, // Unique sessions as proxy for users
           totalEvents: events
         }
       });
