@@ -61,6 +61,7 @@ model admin_settings {
 model analytics_events {
   id         String   @id @default(uuid())
   sessionId  String   @map("session_id")
+  userId     String?  @map("user_id") // Browser fingerprint hash for unique users
   path       String
   event      String   @default("pageview") // pageview, tool_usage, click, etc.
   referrer   String?
@@ -77,6 +78,7 @@ model analytics_events {
   @@index([createdAt])
   @@index([path])
   @@index([sessionId])
+  @@index([userId])
   @@index([event])
   @@map("analytics_events")
 }

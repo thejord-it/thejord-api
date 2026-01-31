@@ -18,11 +18,87 @@ function isTailscaleIP(ip: string): boolean {
   return secondOctet >= 64 && secondOctet <= 127;
 }
 
-// Bot detection patterns
-const BOT_PATTERNS = /bot|crawler|spider|curl|wget|python|java|php|go-http|axios|node-fetch|postman|insomnia/i;
+// Enhanced bot detection patterns
+const BOT_PATTERNS = new RegExp([
+  // Generic bots
+  'bot', 'crawler', 'spider', 'scraper', 'slurp',
+  // HTTP clients
+  'curl', 'wget', 'python', 'java', 'php', 'go-http', 'axios', 'node-fetch',
+  // API testing tools
+  'postman', 'insomnia', 'httpie', 'thunder client',
+  // SEO crawlers
+  'screaming frog', 'ahrefs', 'semrush', 'moz', 'majestic', 'seokicks',
+  'sistrix', 'serpstat', 'linkdex', 'netcraft', 'rogerbot',
+  // Search engines
+  'googlebot', 'bingbot', 'yandex', 'baiduspider', 'duckduckbot',
+  // Social media
+  'facebookexternalhit', 'twitterbot', 'linkedinbot', 'whatsapp', 'telegrambot',
+  // Monitoring
+  'pingdom', 'uptimerobot', 'statuscake', 'site24x7', 'gtmetrix', 'pagespeed',
+  // Headless browsers
+  'headlesschrome', 'phantomjs', 'puppeteer', 'playwright', 'selenium',
+  // Other
+  'applebot', 'pinterestbot', 'slackbot', 'discordbot', 'archive.org'
+].join('|'), 'i');
 
-function isBot(userAgent: string): boolean {
-  return BOT_PATTERNS.test(userAgent);
+// Headless browser detection
+function isHeadlessBrowser(userAgent: string, headers: Record<string, any>): boolean {
+  const ua = userAgent.toLowerCase();
+
+  // Check for headless indicators
+  if (ua.includes('headless')) return true;
+
+  // Chrome without standard headers
+  if (ua.includes('chrome') && !headers['accept-language']) return true;
+
+  // Missing common headers that real browsers send
+  if (!headers['accept'] || headers['accept'] === '*/*') return true;
+
+  return false;
+}
+
+function isBot(userAgent: string, headers?: Record<string, any>): boolean {
+  if (!userAgent || userAgent.length < 10) return true;
+  if (BOT_PATTERNS.test(userAgent)) return true;
+  if (headers && isHeadlessBrowser(userAgent, headers)) return true;
+  return false;
+}
+
+// Rate limiting per IP
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX = 100; // max requests per minute per IP
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+
+  record.count++;
+  if (record.count > RATE_LIMIT_MAX) {
+    return true;
+  }
+
+  return false;
+}
+
+// Clean up rate limit map periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of rateLimitMap.entries()) {
+    if (now > record.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 60000);
+
+// Generate user hash from IP + UserAgent for unique user counting
+function generateUserHash(ip: string, userAgent: string): string {
+  return crypto.createHash('sha256').update(`${ip}|${userAgent}`).digest('hex').slice(0, 16);
 }
 
 // Device type detection
@@ -79,8 +155,13 @@ router.post('/track', async (req: Request, res: Response) => {
       return res.json({ success: true, tracked: false, reason: 'internal' });
     }
 
-    // Filter out bots
-    if (isBot(userAgent)) {
+    // Rate limiting
+    if (isRateLimited(ip)) {
+      return res.json({ success: true, tracked: false, reason: 'rate_limited' });
+    }
+
+    // Filter out bots (enhanced with header check)
+    if (isBot(userAgent, req.headers as Record<string, any>)) {
       return res.json({ success: true, tracked: false, reason: 'bot' });
     }
 
@@ -89,6 +170,7 @@ router.post('/track', async (req: Request, res: Response) => {
       event = 'pageview',
       referrer,
       sessionId,
+      userId: clientUserId,
       language,
       toolName,
       metadata
@@ -102,10 +184,14 @@ router.post('/track', async (req: Request, res: Response) => {
     // Generate session ID if not provided
     const finalSessionId = sessionId || crypto.randomUUID();
 
+    // Generate server-side user hash (fallback if client doesn't send userId)
+    const userHash = clientUserId || generateUserHash(ip, userAgent);
+
     // Create analytics event
     await prisma.analytics_events.create({
       data: {
         sessionId: finalSessionId,
+        userId: userHash,
         path,
         event,
         referrer: referrer || req.headers.referer || null,
@@ -147,8 +233,8 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
     }
 
     if (type === 'overview') {
-      // Get overview stats
-      const [totalPageviews, uniqueSessions, events] = await Promise.all([
+      // Get overview stats with proper user/session separation
+      const [totalPageviews, uniqueSessions, uniqueUsers, events] = await Promise.all([
         prisma.analytics_events.count({
           where: {
             event: 'pageview',
@@ -159,6 +245,14 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
           by: ['sessionId'],
           where: {
             createdAt: dateFilter
+          }
+        }),
+        // Count unique users (distinct userId)
+        prisma.analytics_events.groupBy({
+          by: ['userId'],
+          where: {
+            createdAt: dateFilter,
+            userId: { not: null }
           }
         }),
         prisma.analytics_events.count({
@@ -173,7 +267,7 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response) => {
         data: {
           pageviews: totalPageviews,
           sessions: uniqueSessions.length,
-          users: uniqueSessions.length, // Unique sessions as proxy for users
+          users: uniqueUsers.length || uniqueSessions.length, // Fallback to sessions if no userId
           totalEvents: events
         }
       });
