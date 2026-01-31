@@ -48,11 +48,13 @@ function isHeadlessBrowser(userAgent: string, headers: Record<string, any>): boo
   // Check for headless indicators
   if (ua.includes('headless')) return true;
 
-  // Chrome without standard headers
-  if (ua.includes('chrome') && !headers['accept-language']) return true;
+  // Chrome without standard headers (but allow sendBeacon which has minimal headers)
+  // sendBeacon sends Content-Type but not Accept-Language
+  const isSendBeacon = headers['content-type']?.includes('application/json') && !headers['accept'];
+  if (!isSendBeacon && ua.includes('chrome') && !headers['accept-language']) return true;
 
-  // Missing common headers that real browsers send
-  if (!headers['accept'] || headers['accept'] === '*/*') return true;
+  // Only block if Accept is explicitly '*/*' (curl default), not missing (sendBeacon)
+  if (headers['accept'] === '*/*') return true;
 
   return false;
 }
