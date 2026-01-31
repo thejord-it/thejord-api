@@ -152,18 +152,24 @@ router.post('/track', async (req: Request, res: Response) => {
     const ip = getClientIP(req);
     const userAgent = req.headers['user-agent'] || '';
 
+    // Debug logging (temporary)
+    console.log(`[Analytics] IP: ${ip}, UA: ${userAgent.slice(0, 50)}...`);
+
     // Filter out developer IPs
     if (EXCLUDED_IPS.includes(ip) || isTailscaleIP(ip)) {
+      console.log(`[Analytics] Filtered: internal IP ${ip}`);
       return res.json({ success: true, tracked: false, reason: 'internal' });
     }
 
     // Rate limiting
     if (isRateLimited(ip)) {
+      console.log(`[Analytics] Filtered: rate limited ${ip}`);
       return res.json({ success: true, tracked: false, reason: 'rate_limited' });
     }
 
     // Filter out bots (enhanced with header check)
     if (isBot(userAgent, req.headers as Record<string, any>)) {
+      console.log(`[Analytics] Filtered: bot detected - UA: ${userAgent.slice(0, 80)}`);
       return res.json({ success: true, tracked: false, reason: 'bot' });
     }
 
@@ -208,6 +214,7 @@ router.post('/track', async (req: Request, res: Response) => {
       }
     });
 
+    console.log(`[Analytics] Tracked: ${event} on ${path} from ${ip}`);
     res.json({ success: true, tracked: true, sessionId: finalSessionId });
   } catch (error: any) {
     console.error('Analytics tracking error:', error);
