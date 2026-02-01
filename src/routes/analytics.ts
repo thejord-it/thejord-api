@@ -168,8 +168,10 @@ router.post('/track', async (req: Request, res: Response) => {
     }
 
     // Filter out bots (enhanced with header check)
-    if (isBot(userAgent, req.headers as Record<string, any>)) {
+    const headers = req.headers as Record<string, any>;
+    if (isBot(userAgent, headers)) {
       console.log(`[Analytics] Filtered: bot detected - UA: ${userAgent.slice(0, 80)}`);
+      console.log(`[Analytics] Headers: accept=${headers['accept']}, accept-lang=${headers['accept-language']}, content-type=${headers['content-type']}`);
       return res.json({ success: true, tracked: false, reason: 'bot' });
     }
 
