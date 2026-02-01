@@ -51,7 +51,7 @@ router.get('/', async (req: Request, res: Response) => {
     const posts = await prisma.blog_posts.findMany({
       where: whereClause,
       orderBy: {
-        createdAt: 'desc'
+        publishedAt: 'desc'
       },
       select: {
         id: true,
