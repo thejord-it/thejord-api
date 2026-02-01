@@ -59,9 +59,21 @@ function isHeadlessBrowser(userAgent: string, headers: Record<string, any>): boo
 }
 
 function isBot(userAgent: string, headers?: Record<string, any>): boolean {
-  if (!userAgent || userAgent.length < 10) return true;
-  if (BOT_PATTERNS.test(userAgent)) return true;
-  if (headers && isHeadlessBrowser(userAgent, headers)) return true;
+  if (!userAgent || userAgent.length < 10) {
+    console.log('[Bot] No UA');
+    return true;
+  }
+  if (BOT_PATTERNS.test(userAgent)) {
+    // Find which pattern matched
+    const patterns = ['bot', 'crawler', 'spider', 'scraper', 'slurp', 'curl', 'wget', 'python', 'java', 'php', 'go-http', 'axios', 'node-fetch', 'postman', 'applebot', 'safari'];
+    const matched = patterns.find(p => userAgent.toLowerCase().includes(p));
+    console.log(`[Bot] Pattern matched: ${matched}`);
+    return true;
+  }
+  if (headers && isHeadlessBrowser(userAgent, headers)) {
+    console.log('[Bot] Headless detected');
+    return true;
+  }
   return false;
 }
 
