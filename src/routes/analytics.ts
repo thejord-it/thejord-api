@@ -27,7 +27,7 @@ const BOT_PATTERNS = new RegExp([
   // API testing tools
   'postman', 'insomnia', 'httpie', 'thunder client',
   // SEO crawlers
-  'screaming frog', 'ahrefs', 'semrush', 'moz', 'majestic', 'seokicks',
+  'screaming frog', 'ahrefs', 'semrush', 'moz.com', 'dotbot', 'majestic', 'seokicks',
   'sistrix', 'serpstat', 'linkdex', 'netcraft', 'rogerbot',
   // Search engines
   'googlebot', 'bingbot', 'yandex', 'baiduspider', 'duckduckbot',
@@ -59,21 +59,9 @@ function isHeadlessBrowser(userAgent: string, headers: Record<string, any>): boo
 }
 
 function isBot(userAgent: string, headers?: Record<string, any>): boolean {
-  if (!userAgent || userAgent.length < 10) {
-    console.log('[Bot] No UA');
-    return true;
-  }
-  if (BOT_PATTERNS.test(userAgent)) {
-    // Find which pattern matched
-    const patterns = ['bot', 'crawler', 'spider', 'scraper', 'slurp', 'curl', 'wget', 'python', 'java', 'php', 'go-http', 'axios', 'node-fetch', 'postman', 'applebot', 'safari'];
-    const matched = patterns.find(p => userAgent.toLowerCase().includes(p));
-    console.log(`[Bot] Pattern matched: ${matched}`);
-    return true;
-  }
-  if (headers && isHeadlessBrowser(userAgent, headers)) {
-    console.log('[Bot] Headless detected');
-    return true;
-  }
+  if (!userAgent || userAgent.length < 10) return true;
+  if (BOT_PATTERNS.test(userAgent)) return true;
+  if (headers && isHeadlessBrowser(userAgent, headers)) return true;
   return false;
 }
 
@@ -163,26 +151,19 @@ router.post('/track', async (req: Request, res: Response) => {
     const ip = getClientIP(req);
     const userAgent = req.headers['user-agent'] || '';
 
-    // Debug logging (temporary)
-    console.log(`[Analytics] IP: ${ip}, UA: ${userAgent.slice(0, 50)}...`);
 
     // Filter out developer IPs
     if (EXCLUDED_IPS.includes(ip) || isTailscaleIP(ip)) {
-      console.log(`[Analytics] Filtered: internal IP ${ip}`);
       return res.json({ success: true, tracked: false, reason: 'internal' });
     }
 
     // Rate limiting
     if (isRateLimited(ip)) {
-      console.log(`[Analytics] Filtered: rate limited ${ip}`);
       return res.json({ success: true, tracked: false, reason: 'rate_limited' });
     }
 
     // Filter out bots (enhanced with header check)
-    const headers = req.headers as Record<string, any>;
-    if (isBot(userAgent, headers)) {
-      console.log(`[Analytics] Filtered: bot detected - UA: ${userAgent.slice(0, 80)}`);
-      console.log(`[Analytics] Headers: accept=${headers['accept']}, accept-lang=${headers['accept-language']}, content-type=${headers['content-type']}`);
+    if (isBot(userAgent, req.headers as Record<string, any>)) {
       return res.json({ success: true, tracked: false, reason: 'bot' });
     }
 
@@ -227,7 +208,6 @@ router.post('/track', async (req: Request, res: Response) => {
       }
     });
 
-    console.log(`[Analytics] Tracked: ${event} on ${path} from ${ip}`);
     res.json({ success: true, tracked: true, sessionId: finalSessionId });
   } catch (error: any) {
     console.error('Analytics tracking error:', error);
